@@ -2,7 +2,9 @@ import time
 import random
 import sys
 import os.path
+import threading
 import multiprocessing as mp
+from queue import Queue
 
 import ST7735 as TFT
 import Adafruit_GPIO as GPIO
@@ -23,30 +25,31 @@ def img_prepare(lcd_size=[128,128]):
         data.append([img,len(eye_list),eye_list])
     return data
 
-def center(Lpup,Rpup):
-    print("center on")
-    i=0
-    time.sleep(3)
-    while 1:
-        i+=1
-        Lpup.send(i%7)
-        Rpup.send(i%7)
-        time.sleep(1)
+def recive(sup,q):
+    while True:
+        n=sup.recv()
+        q.put(n)
+        print('recive')
         barrier2.wait()
 
 def start(device,sup):
     data=img_prepare()
     device.begin()
-    time.sleep(1)
+    q=Queue()
     print(data[0][0],data[0][1],data[0][2][0])
+    observer=threading.Thread(target=recive,args=(sup,q))
+    observer.start()
+    n=0
     while True:
-        n=sup.recv()
-        barrier2.wait()
-        for i in range(0,data[n][1]):
+        if not q.empty():
+            print('changing img!')
+            n=q.get()
+        print("displayed <%s>"%data[n][0])
+        for i in range(0,data[n][1],2):
             barrier1.wait()
             time.sleep(1/45)
             device.display(data[n][2][i])
-        time.sleep(0.2)
+        time.sleep(2)
 
 if __name__ == "__main__":
     try:
@@ -59,18 +62,16 @@ if __name__ == "__main__":
         Rpup,Rsup=mp.Pipe()
 
         barrier1=mp.Barrier(2, timeout=2)
-        barrier2=mp.Barrier(3, timeout=5)
+        barrier2=mp.Barrier(3, timeout=2)
 
         left=mp.Process(target=start, args=(L_eye,Lsup))
         right=mp.Process(target=start, args=(R_eye,Rsup))
-        #img_prep=mp.Process(target=center, args=(Lpup,Rpup))
 
         left.start()
         right.start()
-        #img_prep.start()
 
         print("change on")
-        while 1:
+        while True:
             for n,name in enumerate(imgl):
                 print(n,name)
             try:
