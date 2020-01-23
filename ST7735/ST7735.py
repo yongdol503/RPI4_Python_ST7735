@@ -116,8 +116,11 @@ def image_to_data(image,rotate):
     """Generator function to convert a PIL image to 16-bit 565 RGB bytes."""
     # NumPy is much faster at doing this. NumPy code provided by:
     # Keith (https://www.blogger.com/profile/02555547344016007163)
-    image=image.rotate(rotate)
-    pb = np.array(image.convert('RGB')).astype('uint16')
+    try:
+        image=image.rotate(rotate).convert('RGB')
+    except:
+        pass
+    pb = np.array(image).astype('uint16')
     color = ((pb[:,:,0] & 0xF8) << 8) | ((pb[:,:,1] & 0xFC) << 3) | (pb[:,:,2] >> 3)
     return np.dstack(((color >> 8) & 0xFF, color & 0xFF)).flatten().tolist()
 
